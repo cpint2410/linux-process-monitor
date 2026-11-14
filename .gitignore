@@ -1,8 +1,6 @@
-# Compiled executable
-/process-monitor
-
-# Object files
 *.o
-
-# Debugging files
-*.core
+process-monitor
+test-search
+test-sorting
+*.out
+core

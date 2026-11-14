@@ -72,8 +72,6 @@ static void calculate_cpu(
 static int refresh(
     ProcessList *previous,
     CpuInfo *previous_cpu,
-    ProcessList *current,
-    CpuInfo *current_cpu,
     SystemInfo *memory,
     double *system_cpu)
 {
@@ -103,12 +101,11 @@ static int refresh(
         *system_cpu = 0.0;
     }
 
+    /* Release old snapshot and transfer ownership. */
     free_processes(previous);
-    *previous = next;
 
+    *previous = next;
     *previous_cpu = cpu;
-    *current_cpu = cpu;
-    *current = *previous;
     *memory = mem;
 
     return 0;
@@ -183,11 +180,7 @@ int main(void)
     }
 
     ProcessList previous = {0};
-    ProcessList current = {0};
-
     CpuInfo previous_cpu = {0};
-    CpuInfo current_cpu = {0};
-
     SystemInfo memory = {0};
 
     double system_cpu = 0.0;
@@ -206,8 +199,8 @@ int main(void)
     struct timespec delay = {.tv_sec = 1, .tv_nsec = 0};
     nanosleep(&delay, NULL);
 
-    if (refresh(&previous, &previous_cpu, &current,
-                &current_cpu, &memory, &system_cpu) != 0) {
+    if (refresh(&previous, &previous_cpu,
+            &memory, &system_cpu) != 0) {
         fprintf(stderr, "Initial refresh failed.\n");
         free_processes(&previous);
         return 1;
@@ -217,7 +210,7 @@ int main(void)
 
     while (running) {
         if (dirty) {
-            display(&current, &memory, system_cpu,
+            display(&previous, &memory, system_cpu,
                     query, mode, interval);
             dirty = 0;
         }
@@ -306,15 +299,14 @@ int main(void)
         }
 
         if (running && dirty) {
-            if (refresh(&previous, &previous_cpu, &current,
-                        &current_cpu, &memory, &system_cpu) != 0) {
+            if (refresh(&previous, &previous_cpu,
+                        &memory, &system_cpu) != 0) {
                 running = 0;
             }
         }
     }
 
     free_processes(&previous);
-    free_processes(&current);
 
     printf("\nLinux Process Monitor closed.\n");
 
