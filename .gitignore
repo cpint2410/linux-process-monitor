@@ -1,0 +1,8 @@
+# Compiled executable
+/process-monitor
+
+# Object files
+*.o
+
+# Debugging files
+*.core
