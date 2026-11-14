@@ -4,7 +4,7 @@ CFLAGS = -Wall -Wextra -Werror -std=c11 -Iinclude
 
 TARGET = process-monitor
 
-SOURCES = src/main.c src/process.c src/system_info.c
+SOURCES = src/main.c src/process.c src/system_info.c src/search.c src/sorting.c
 
 OBJECTS = $(SOURCES:.c=.o)
 
