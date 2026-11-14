@@ -10,10 +10,17 @@ typedef struct {
     pid_t pid;
     pid_t ppid;
     uid_t uid;
+
     char name[PROCESS_NAME_LEN];
     char state;
+
     unsigned long virtual_memory;
     long resident_memory;
+
+    unsigned long long cpu_ticks;
+    unsigned long long start_time;
+    double cpu_usage;
+
 } Process;
 
 typedef struct {

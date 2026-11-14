@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+
 #include "process.h"
 
 #include <stdio.h>
@@ -17,6 +18,7 @@ static int read_process(pid_t pid, Process *p)
     snprintf(path, sizeof(path), "/proc/%d/stat", pid);
 
     FILE *file = fopen(path, "r");
+
     if (!file)
         return -1;
 
@@ -49,15 +51,56 @@ static int read_process(pid_t pid, Process *p)
 
     p->state = token[0];
 
-    token = strtok_r(NULL, " ", &saveptr);
-    if (!token)
-        return -1;
+    for (int field = 4; field <= 22; field++) {
 
-    p->ppid = (pid_t)strtol(token, NULL, 10);
+        token = strtok_r(NULL, " ", &saveptr);
+
+        if (!token)
+            return -1;
+
+        char *parse_end;
+
+        switch (field) {
+
+            case 4:
+                p->ppid = (pid_t)strtol(token, &parse_end, 10);
+                if (*parse_end != '\0')
+                    return -1;
+                break;
+
+            case 14:
+            case 15: {
+                unsigned long long ticks =
+                    strtoull(token, &parse_end, 10);
+
+                if (*parse_end != '\0')
+                    return -1;
+
+                if (field == 14)
+                    p->cpu_ticks = ticks;
+                else
+                    p->cpu_ticks += ticks;
+
+                break;
+            }
+
+            case 22:
+                p->start_time =
+                    strtoull(token, &parse_end, 10);
+
+                if (*parse_end != '\0')
+                    return -1;
+                break;
+
+            default:
+                break;
+        }
+    }
 
     snprintf(path, sizeof(path), "/proc/%d/statm", pid);
 
     file = fopen(path, "r");
+
     if (!file)
         return -1;
 
@@ -65,6 +108,7 @@ static int read_process(pid_t pid, Process *p)
     unsigned long resident;
 
     int result = fscanf(file, "%lu %lu", &pages, &resident);
+
     fclose(file);
 
     if (result != 2)
@@ -76,15 +120,19 @@ static int read_process(pid_t pid, Process *p)
         return -1;
 
     p->virtual_memory = pages * (unsigned long)page_size;
-    p->resident_memory = (long)(resident * (unsigned long)page_size);
+
+    p->resident_memory =
+        (long)(resident * (unsigned long)page_size);
 
     snprintf(path, sizeof(path), "/proc/%d/status", pid);
 
     file = fopen(path, "r");
+
     p->uid = (uid_t)-1;
 
     if (file) {
         while (fgets(buffer, sizeof(buffer), file)) {
+
             unsigned int uid;
 
             if (sscanf(buffer, "Uid:\t%u", &uid) == 1) {
@@ -97,19 +145,20 @@ static int read_process(pid_t pid, Process *p)
     }
 
     p->pid = pid;
+    p->cpu_usage = 0.0;
 
     return 0;
 }
 
 int get_processes(ProcessList *list)
 {
+    list->items = NULL;
+    list->count = 0;
+
     DIR *dir = opendir("/proc");
 
     if (!dir)
         return -1;
-
-    list->items = NULL;
-    list->count = 0;
 
     size_t capacity = 128;
 
@@ -123,21 +172,29 @@ int get_processes(ProcessList *list)
     struct dirent *entry;
 
     while ((entry = readdir(dir)) != NULL) {
+
         char *end;
         errno = 0;
 
         long value = strtol(entry->d_name, &end, 10);
 
-        if (errno || *end != '\0' || value <= 0 ||
-            value > INT32_MAX)
+        if (errno || *end != '\0' ||
+            value <= 0 || value > INT32_MAX)
             continue;
 
-        Process p;
+        Process p = {0};
 
         if (read_process((pid_t)value, &p) != 0)
             continue;
 
         if (list->count == capacity) {
+
+            if (capacity > SIZE_MAX / 2 / sizeof(Process)) {
+                free_processes(list);
+                closedir(dir);
+                return -1;
+            }
+
             capacity *= 2;
 
             Process *new_items = realloc(
@@ -146,9 +203,7 @@ int get_processes(ProcessList *list)
             );
 
             if (!new_items) {
-                free(list->items);
-                list->items = NULL;
-                list->count = 0;
+                free_processes(list);
                 closedir(dir);
                 return -1;
             }
