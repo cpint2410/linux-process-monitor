@@ -1,17 +1,25 @@
 CC = gcc
 
-CFLAGS = -Wall -Wextra -Wpedantic -std=c11
+CFLAGS = -Wall -Wextra -Werror -std=c11 -Iinclude
 
 TARGET = process-monitor
 
-SRC = src/main.c
+SOURCES = src/main.c src/process.c src/system_info.c
 
-.PHONY: all clean
+OBJECTS = $(SOURCES:.c=.o)
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) $(SRC) -o $(TARGET)
+$(TARGET): $(OBJECTS)
+	$(CC) $(CFLAGS) -o $(TARGET) $(OBJECTS)
+
+src/%.o: src/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(OBJECTS) $(TARGET)
+
+run: $(TARGET)
+	./$(TARGET)
+
+.PHONY: all clean run
