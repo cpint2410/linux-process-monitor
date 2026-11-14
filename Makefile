@@ -17,7 +17,7 @@ src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(OBJECTS) $(TARGET)
+	rm -f src/*.o process-monitor test-search test-sorting
 
 run: $(TARGET)
 	./$(TARGET)
